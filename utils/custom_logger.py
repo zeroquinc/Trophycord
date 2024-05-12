@@ -24,7 +24,7 @@ def create_logger():
     logs_path.mkdir(exist_ok=True)
     log_format = "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level}</level> | <level>{message}</level>" if LOG_LEVEL != 'DEBUG' else "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level}</level> | <red>{file}</red> | <yellow>{function}</yellow> | <level>{message}</level>"
     logger.add(sys.stdout, level=LOG_LEVEL, colorize=True, format=log_format)
-    logger.add(logs_path / 'retrocord.log', level=LOG_LEVEL, colorize=True, format=log_format)
+    logger.add(logs_path / 'trophycord.log', level=LOG_LEVEL, colorize=True, format=log_format)
 
 def switch_logger():
     """
