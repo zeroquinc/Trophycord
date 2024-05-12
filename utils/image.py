@@ -3,6 +3,7 @@ import requests
 from io import BytesIO
 import numpy as np
 from sklearn.cluster import KMeans
+import asyncio
 
 def is_colorful(color, tolerance=20, saturation_threshold=50):
     r, g, b = color
@@ -12,7 +13,17 @@ def is_colorful(color, tolerance=20, saturation_threshold=50):
         (abs(r - g) >= tolerance or abs(r - b) >= tolerance or abs(g - b) >= tolerance)
     )
 
-def get_discord_color(image_url, num_colors=10, crop_percentage=0.5):
+async def get_discord_color(image_url, num_colors=10, crop_percentage=0.5):
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(
+        None,
+        get_discord_color_blocking,
+        image_url,
+        num_colors,
+        crop_percentage,
+    )
+
+def get_discord_color_blocking(image_url, num_colors=10, crop_percentage=0.5):
     response = requests.get(image_url)
     img = Image.open(BytesIO(response.content))
 
@@ -39,6 +50,6 @@ def get_discord_color(image_url, num_colors=10, crop_percentage=0.5):
     counts = np.bincount(kmeans.labels_)
     sorted_colors = sorted([(count, color) for count, color in zip(counts, kmeans.cluster_centers_) if is_colorful(color)], reverse=True)
 
-    dominant_color = sorted_colors[0][1] if sorted_colors else kmeans.cluster_centers_[np.argmax(counts)]
+    dominant_color = sorted_colors[0][1] if len(sorted_colors) != 0 else kmeans.cluster_centers_[np.argmax(counts)]
 
     return int('0x{:02x}{:02x}{:02x}'.format(*dominant_color.astype(int)), 16)
