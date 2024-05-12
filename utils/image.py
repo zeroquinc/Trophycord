@@ -4,25 +4,18 @@ from io import BytesIO
 import numpy as np
 from sklearn.cluster import KMeans
 
-def get_discord_color(image_url, num_colors=5, crop_percentage=0.5):
-    """
-    Get the most distinct color from the center of an image for Discord usage.
+def is_colorful(color, tolerance=20, saturation_threshold=50):
+    r, g, b = color
+    saturation = np.std([r, g, b])
+    return (
+        saturation > saturation_threshold and
+        (abs(r - g) >= tolerance or abs(r - b) >= tolerance or abs(g - b) >= tolerance)
+    )
 
-    Args:
-        image_url (str): The URL of the image to analyze.
-        num_colors (int): Number of dominant colors to extract (default is 5).
-        crop_percentage (float): Percentage of the image to keep in the center (default is 0.5).
-
-    Returns:
-        int: The most distinct color in hexadecimal format.
-
-    Raises:
-        (Exception): If there is an issue with fetching or processing the image.
-    """
+def get_discord_color(image_url, num_colors=10, crop_percentage=0.5):
     response = requests.get(image_url)
     img = Image.open(BytesIO(response.content))
 
-    # Calculate the crop dimensions
     width, height = img.size
     crop_width = int(width * crop_percentage)
     crop_height = int(height * crop_percentage)
@@ -33,9 +26,9 @@ def get_discord_color(image_url, num_colors=5, crop_percentage=0.5):
 
     img = img.crop((left, top, right, bottom))
 
-    img = img.resize((img.width // 2, img.height // 2))  # Resize for faster processing
+    img = img.resize((img.width // 2, img.height // 2))
 
-    img = img.convert("RGB")  # Ensure the image is in RGB format
+    img = img.convert("RGB")
 
     img_array = np.array(img)
     img_flattened = img_array.reshape(-1, 3)
@@ -43,6 +36,9 @@ def get_discord_color(image_url, num_colors=5, crop_percentage=0.5):
     kmeans = KMeans(n_clusters=num_colors)
     kmeans.fit(img_flattened)
 
-    dominant_color = kmeans.cluster_centers_[np.argmax(np.bincount(kmeans.labels_))]
+    counts = np.bincount(kmeans.labels_)
+    sorted_colors = sorted([(count, color) for count, color in zip(counts, kmeans.cluster_centers_) if is_colorful(color)], reverse=True)
+
+    dominant_color = sorted_colors[0][1] if sorted_colors else kmeans.cluster_centers_[np.argmax(counts)]
 
     return int('0x{:02x}{:02x}{:02x}'.format(*dominant_color.astype(int)), 16)
