@@ -1,37 +1,35 @@
-import discord
 from datetime import timedelta
 from psnawp_api import PSNAWP
 
-from utils.image import get_discord_color
-from utils.trophy import format_title
-from utils.datetime import calculate_total_time, get_current_time, format_date
-from config.config import PSNTOKEN, DISCORD_IMAGE, TROPHIES_INTERVAL
+from src.discord import create_trophy_embed, create_platinum_embed, send_trophy_embeds, send_platinum_embeds
+
+from utils.datetime import calculate_total_time, get_current_time
+from config.config import PSNTOKEN, TROPHIES_INTERVAL
 
 from utils.custom_logger import logger
 
 psnawp = PSNAWP(PSNTOKEN)
 
 def get_client():
-    logger.debug("Calling Sony API for profile information.")
     client = psnawp.me()
+    logger.info(f"Calling Sony API for profile information for user {client.online_id}")
     profile_legacy = client.get_profile_legacy()
     profile_picture_url = profile_legacy['profile']['personalDetail']['profilePictureUrls'][0]['profilePictureUrl']
     client.profile_picture_url = profile_picture_url
     return client
 
-def get_recent_titles(client, hours=24): # Use 24 hours because Sony's API is not updating the last_played_date_time very often
+def get_recent_titles(client, hours=24): 
     logger.info("Calling Sony API to get recently played games")
     now = get_current_time()
     titles = list(client.title_stats())
     title_ids = [(title.title_id, 'PS5' if 'ps5' in title.category.value else 'PS4') for title in titles if title.last_played_date_time > now - timedelta(hours=hours)]
-    logger.debug(f"API response: {titles}")
     for title in titles:
-        if title.title_id in [id_ for id_, platform in title_ids]:
-            logger.debug(f"Found a recently played game: {title.name}")
+        for id_, platform in title_ids:
+            if title.title_id == id_:
+                logger.info(f"Found a recently played game: {title.name} ({platform})")
     return title_ids
 
 def get_earned_trophies(client, title_ids):
-    logger.debug("Calling Sony API to get earned trophies.")
     trophies = []
     for title_id, platform in title_ids:
         for trophy_title in client.trophy_titles_for_title(title_ids=[title_id]):
@@ -39,81 +37,60 @@ def get_earned_trophies(client, title_ids):
                 earned_trophies = client.trophies(np_communication_id=trophy_title.np_communication_id, platform=platform, trophy_group_id='all', include_metadata=True)
                 # Add each trophy and its title to the list
                 trophies.extend((trophy, {'trophy_title': trophy_title, 'platform': platform}) for trophy in earned_trophies)
+                logger.info(f"Calling Sony API to get earned trophies for {trophy_title.title_name} ({platform})")
             except Exception as e:
-                logger.error(f"Failed to get trophies for platform {platform}: {e}")
+                logger.error(f"Failed to get trophies for {trophy_title.title_name} ({platform}): {e}")
     return trophies
 
-async def create_trophy_embed(trophy, trophy_title_info, client, current, total_trophies):
-    trophy_title = trophy_title_info['trophy_title']
-    game_url = format_title(trophy_title.title_name)  # format the title name into a URL
-    platform = trophy_title_info['platform']
-    most_common_color = await get_discord_color(trophy.trophy_icon_url)
-    completion = current
-    percentage = (completion / total_trophies) * 100
-    embed = discord.Embed(description=f"**[{trophy_title.title_name}]({game_url}) ({platform})** \n\n {trophy.trophy_detail} \n\n Unlocked by {trophy.trophy_earn_rate}% of players", color=most_common_color)
-    embed.add_field(name="Trophy", value=f"[{trophy.trophy_name}]({trophy.trophy_icon_url})", inline=True)
-    embed.add_field(name="Rarity", value=f"{trophy.trophy_type.name.lower().capitalize()}")
-    embed.add_field(name="Completion", value=f"{completion}/{total_trophies} ({percentage:.2f}%)", inline=True)
-    embed.set_image(url=DISCORD_IMAGE)
-    embed.set_thumbnail(url=trophy.trophy_icon_url)
-    embed.set_footer(text=f"{client.online_id} • Earned on {format_date(trophy.earned_date_time)}", icon_url=client.profile_picture_url)
-    embed.set_author(name="A Trophy Unlocked", icon_url=trophy_title.title_icon_url)
-    return embed
+async def get_earned_and_recent_trophies(client, title_id, platform, TROPHIES_INTERVAL):
+    # Get all trophies for the current title_id
+    all_trophies = get_earned_trophies(client, [(title_id, platform)])
+    # Filter out trophies with None earned date
+    earned_trophies = [t for t in all_trophies if t[0].earned_date_time is not None]
+    # Sort earned trophies by earned date
+    earned_trophies.sort(key=lambda x: x[0].earned_date_time)
+    # Calculate total trophies of the game (before filtering for earned_date_time)
+    total_trophies = len(all_trophies)
+    # Get current time and calculate cutoff time
+    now = get_current_time()
+    cutoff = now - timedelta(minutes=TROPHIES_INTERVAL)
+    recent_trophies = [t for t in earned_trophies if t[0].earned_date_time >= cutoff]
+    game_name = all_trophies[0][1]['trophy_title'].title_name if all_trophies else "Unknown"
+    logger.info(f"Found {len(recent_trophies)} earned trophies for {game_name} ({platform})")
+    return earned_trophies, recent_trophies, total_trophies
 
-async def create_platinum_embed(trophy, trophy_title_info, client, formatted_time_diff):
-    trophy_title = trophy_title_info['trophy_title']
-    game_url = format_title(trophy_title.title_name)  # format the title name into a URL
-    platform = trophy_title_info['platform']
-    most_common_color = await get_discord_color(trophy_title.title_icon_url)
-    embed = discord.Embed(description=f"**[{trophy_title.title_name}]({game_url}) ({platform})**\n\n Achieved in {formatted_time_diff} \n\n{trophy_title.title_name} has {trophy_title.defined_trophies['bronze']} Bronze, {trophy_title.defined_trophies['silver']} Silver, {trophy_title.defined_trophies['gold']} Gold, and {trophy_title.defined_trophies['platinum']} Platinum trophy\n\n The Platinum has been achieved by {trophy.trophy_earn_rate}% of players", color=most_common_color)
-    embed.add_field(name="Trophy", value=f"[{trophy.trophy_name}]({trophy.trophy_icon_url})", inline=True)
-    embed.set_image(url=DISCORD_IMAGE)
-    embed.set_thumbnail(url=trophy_title.title_icon_url)
-    embed.set_footer(text=f"{client.online_id} • Platinum achieved on {format_date(trophy.earned_date_time)}", icon_url=client.profile_picture_url)
-    embed.set_author(name="Platinum Unlocked", icon_url=trophy_title.title_icon_url)
-    return embed
+async def create_trophy_and_platinum_embeds(client, earned_trophies, recent_trophies, total_trophies):
+    trophy_embeds = []
+    platinum_embeds = []
+    # Calculate total trophies earned (after filtering)
+    total_trophies_earned = len(earned_trophies)
+    # Calculate the starting count
+    starting_count = total_trophies_earned - len(recent_trophies)
+    for i, (trophy, trophy_title) in enumerate(recent_trophies):
+        # Pass total_trophies to create_trophy_embed function
+        embed = await create_trophy_embed(trophy, trophy_title, client, starting_count + i + 1, total_trophies)
+        trophy_embeds.append((trophy.earned_date_time, embed))
+        if trophy.trophy_type.name.lower() == 'platinum':
+            # Get the oldest and newest trophy
+            oldest_trophy = earned_trophies[0]
+            newest_trophy = earned_trophies[-1]
+            # Calculate the time difference
+            time_diff = newest_trophy[0].earned_date_time - oldest_trophy[0].earned_date_time
+            # Format the time difference
+            formatted_time_diff = calculate_total_time(time_diff)
+            # Pass formatted_time_diff to create_platinum_embed function
+            embed = await create_platinum_embed(trophy, trophy_title, client, formatted_time_diff)
+            platinum_embeds.append((trophy.earned_date_time, embed))
+    return trophy_embeds, platinum_embeds
 
 async def process_trophies_embeds(client, title_ids, TROPHIES_INTERVAL):
     trophy_embeds = []
     platinum_embeds = []
     for title_id, platform in title_ids:
-        # Get all trophies for the current title_id
-        all_trophies = get_earned_trophies(client, [(title_id, platform)])
-        # Filter out trophies with None earned date
-        earned_trophies = [t for t in all_trophies if t[0].earned_date_time is not None]
-        # Get the game name from the first trophy_title object
-        game_name = all_trophies[0][1]['trophy_title'].title_name if all_trophies else "Unknown"
-        logger.debug(f"Found {len(earned_trophies)} earned trophies for game {game_name}")
-        # Sort earned trophies by earned date
-        earned_trophies.sort(key=lambda x: x[0].earned_date_time)
-        # Calculate total trophies of the game (before filtering for earned_date_time)
-        total_trophies = len(all_trophies)
-        # Get current time and calculate cutoff time
-        now = get_current_time()
-        logger.debug(f"Current time: {now}")
-        cutoff = now - timedelta(minutes=TROPHIES_INTERVAL)
-        logger.debug(f"Cutoff time: {cutoff}")
-        recent_trophies = [t for t in earned_trophies if t[0].earned_date_time >= cutoff]
-        logger.debug(f"Recent trophies after filtering: {recent_trophies}")
-        # Calculate total trophies earned (after filtering)
-        total_trophies_earned = len(earned_trophies)
-        # Calculate the starting count
-        starting_count = total_trophies_earned - len(recent_trophies)
-        for i, (trophy, trophy_title) in enumerate(recent_trophies):
-            # Pass total_trophies to create_trophy_embed function
-            embed = await create_trophy_embed(trophy, trophy_title, client, starting_count + i + 1, total_trophies)
-            trophy_embeds.append((trophy.earned_date_time, embed))
-            if trophy.trophy_type.name.lower() == 'platinum':
-                # Get the oldest and newest trophy
-                oldest_trophy = earned_trophies[0]
-                newest_trophy = earned_trophies[-1]
-                # Calculate the time difference
-                time_diff = newest_trophy[0].earned_date_time - oldest_trophy[0].earned_date_time
-                # Format the time difference
-                formatted_time_diff = calculate_total_time(time_diff)
-                # Pass formatted_time_diff to create_platinum_embed function
-                embed = await create_platinum_embed(trophy, trophy_title, client, formatted_time_diff)
-                platinum_embeds.append((trophy.earned_date_time, embed))
+        earned_trophies, recent_trophies, total_trophies = await get_earned_and_recent_trophies(client, title_id, platform, TROPHIES_INTERVAL)
+        trophy_embeds_, platinum_embeds_ = await create_trophy_and_platinum_embeds(client, earned_trophies, recent_trophies, total_trophies)
+        trophy_embeds.extend(trophy_embeds_)
+        platinum_embeds.extend(platinum_embeds_)
     return trophy_embeds, len(recent_trophies), platinum_embeds
 
 async def process_trophies(trophies_channel, platinum_channel):
@@ -122,12 +99,5 @@ async def process_trophies(trophies_channel, platinum_channel):
         trophy_embeds, _, platinum_embeds = await process_trophies_embeds(client, title_ids, TROPHIES_INTERVAL)
         # Filter out trophy embeds with None earned date before sorting
         trophy_embeds = [te for te in trophy_embeds if te[0] is not None]
-        trophy_embeds.sort(key=lambda x: x[0])  # Sort embeds by trophy earned date
-        if trophy_embeds:
-            logger.info(f"Sending {len(trophy_embeds)} trophy embeds to {trophies_channel}")
-            for i in range(0, len(trophy_embeds), 10):
-                await trophies_channel.send(embeds=[embed[1] for embed in trophy_embeds[i:i+10]])
-        if platinum_embeds:
-            logger.info(f"Sending {len(platinum_embeds)} platinum embeds to {platinum_channel}")
-            for i in range(0, len(platinum_embeds), 10):
-                await platinum_channel.send(embeds=[embed[1] for embed in platinum_embeds[i:i+10]])
+        await send_trophy_embeds(trophies_channel, trophy_embeds)
+        await send_platinum_embeds(platinum_channel, platinum_embeds)
