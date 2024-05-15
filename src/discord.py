@@ -15,7 +15,7 @@ async def create_trophy_embed(trophy, trophy_title_info, client, current, total_
     most_common_color = await get_discord_color(trophy.trophy_icon_url)
     completion = current
     percentage = (completion / total_trophies) * 100
-    embed = discord.Embed(description=f"**[{trophy_title.title_name}]({game_url}) ({platform})** \n\n {trophy.trophy_detail} \n\n Unlocked by {trophy.trophy_earn_rate}% of players", color=most_common_color)
+    embed = discord.Embed(description=f"**[{trophy_title.title_name}]({game_url}) ({platform})**\n\n{trophy.trophy_detail}\n\nUnlocked by {trophy.trophy_earn_rate}% of players", color=most_common_color)
     embed.add_field(name="Trophy", value=f"[{trophy.trophy_name}]({trophy.trophy_icon_url})", inline=True)
     embed.add_field(name="Rarity", value=f"{trophy.trophy_type.name.lower().capitalize()}")
     embed.add_field(name="Completion", value=f"{completion}/{total_trophies} ({percentage:.2f}%)", inline=True)
@@ -30,7 +30,7 @@ async def create_platinum_embed(trophy, trophy_title_info, client, formatted_tim
     game_url = format_title(trophy_title.title_name)  # format the title name into a URL
     platform = trophy_title_info['platform']
     most_common_color = await get_discord_color(trophy_title.title_icon_url)
-    embed = discord.Embed(description=f"**[{trophy_title.title_name}]({game_url}) ({platform})**\n\n Achieved in {formatted_time_diff} \n\n{trophy_title.title_name} has {trophy_title.defined_trophies['bronze']} Bronze, {trophy_title.defined_trophies['silver']} Silver, {trophy_title.defined_trophies['gold']} Gold, and {trophy_title.defined_trophies['platinum']} Platinum trophy\n\n The Platinum has been achieved by {trophy.trophy_earn_rate}% of players", color=most_common_color)
+    embed = discord.Embed(description=f"**[{trophy_title.title_name}]({game_url}) ({platform})**\n\nAchieved in {formatted_time_diff}\n\n{trophy_title.title_name} has {trophy_title.defined_trophies['bronze']} Bronze, {trophy_title.defined_trophies['silver']} Silver, {trophy_title.defined_trophies['gold']} Gold, and {trophy_title.defined_trophies['platinum']} Platinum trophy\n\nThe Platinum has been achieved by {trophy.trophy_earn_rate}% of players", color=most_common_color)
     embed.add_field(name="Trophy", value=f"[{trophy.trophy_name}]({trophy.trophy_icon_url})", inline=True)
     embed.set_image(url=DISCORD_IMAGE)
     embed.set_thumbnail(url=trophy_title.title_icon_url)
