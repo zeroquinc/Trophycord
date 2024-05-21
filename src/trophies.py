@@ -1,21 +1,28 @@
 from datetime import timedelta
 from psnawp_api import PSNAWP
 
-from src.discord import create_trophy_embed, create_platinum_embed, send_trophy_embeds, send_platinum_embeds
+from src.discord import create_trophy_embed, create_simple_trophy_embed, create_platinum_embed, send_trophy_embeds, send_platinum_embeds
 
 from utils.datetime import calculate_total_time, get_current_time
-from config.config import PSNTOKEN, TROPHIES_INTERVAL
+from config.config import PSNTOKEN, TROPHIES_INTERVAL, COMPACT_EMBED
 
 from utils.custom_logger import logger
 
 psnawp = PSNAWP(PSNTOKEN)
+profile_picture = {}
 
 def get_client():
     client = psnawp.me()
-    logger.info(f"Calling Sony API for profile information for user {client.online_id}")
-    profile_legacy = client.get_profile_legacy()
-    profile_picture_url = profile_legacy['profile']['personalDetail']['profilePictureUrls'][0]['profilePictureUrl']
-    client.profile_picture_url = profile_picture_url
+    online_id = client.online_id
+    if online_id in profile_picture:
+        client.profile_picture_url = profile_picture[online_id]
+        logger.info(f"Loaded profile picture from cache for user {online_id}")
+    else:
+        logger.info(f"Calling Sony API for profile information for user {online_id}")
+        profile_legacy = client.get_profile_legacy()
+        profile_picture_url = profile_legacy['profile']['personalDetail']['profilePictureUrls'][0]['profilePictureUrl']
+        client.profile_picture_url = profile_picture_url
+        profile_picture[online_id] = profile_picture_url
     return client
 
 def get_recent_titles(client, hours=24): 
@@ -62,23 +69,19 @@ async def get_earned_and_recent_trophies(client, title_id, platform, TROPHIES_IN
 async def create_trophy_and_platinum_embeds(client, earned_trophies, recent_trophies, total_trophies):
     trophy_embeds = []
     platinum_embeds = []
-    # Calculate total trophies earned (after filtering)
     total_trophies_earned = len(earned_trophies)
-    # Calculate the starting count
     starting_count = total_trophies_earned - len(recent_trophies)
     for i, (trophy, trophy_title) in enumerate(recent_trophies):
-        # Pass total_trophies to create_trophy_embed function
-        embed = await create_trophy_embed(trophy, trophy_title, client, starting_count + i + 1, total_trophies)
+        if COMPACT_EMBED:
+            embed = await create_simple_trophy_embed(trophy, trophy_title, client, starting_count + i + 1, total_trophies)
+        else:
+            embed = await create_trophy_embed(trophy, trophy_title, client, starting_count + i + 1, total_trophies)
         trophy_embeds.append((trophy.earned_date_time, embed))
         if trophy.trophy_type.name.lower() == 'platinum':
-            # Get the oldest and newest trophy
             oldest_trophy = earned_trophies[0]
             newest_trophy = earned_trophies[-1]
-            # Calculate the time difference
             time_diff = newest_trophy[0].earned_date_time - oldest_trophy[0].earned_date_time
-            # Format the time difference
             formatted_time_diff = calculate_total_time(time_diff)
-            # Pass formatted_time_diff to create_platinum_embed function
             embed = await create_platinum_embed(trophy, trophy_title, client, formatted_time_diff)
             platinum_embeds.append((trophy.earned_date_time, embed))
     return trophy_embeds, platinum_embeds

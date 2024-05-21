@@ -25,6 +25,17 @@ async def create_trophy_embed(trophy, trophy_title_info, client, current, total_
     embed.set_author(name="A Trophy Unlocked", icon_url=trophy_title.title_icon_url)
     return embed
 
+async def create_simple_trophy_embed(trophy, trophy_title_info, client, current, total_trophies):
+    trophy_title = trophy_title_info['trophy_title']
+    game_url = format_title(trophy_title.title_name)  # format the title name into a URL
+    most_common_color = await get_discord_color(trophy.trophy_icon_url)
+    completion = current
+    percentage = (completion / total_trophies) * 100
+    embed = discord.Embed(description=f"**{trophy.trophy_name} {replace_trophy_with_emoji(trophy.trophy_type.name.lower())} {trophy.trophy_earn_rate}%**\n{trophy.trophy_detail}\n\n[{trophy_title.title_name}]({game_url})", color=most_common_color)
+    embed.set_thumbnail(url=trophy.trophy_icon_url)
+    embed.set_footer(text=f"{format_date(trophy.earned_date_time)} • {completion}/{total_trophies} ({percentage:.2f}%)", icon_url=client.profile_picture_url)
+    return embed
+
 async def create_platinum_embed(trophy, trophy_title_info, client, formatted_time_diff):
     trophy_title = trophy_title_info['trophy_title']
     game_url = format_title(trophy_title.title_name)  # format the title name into a URL

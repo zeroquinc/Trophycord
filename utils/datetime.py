@@ -88,4 +88,4 @@ def format_date(date: datetime) -> str:
     """
     amsterdam_tz = pytz.timezone('Europe/Amsterdam')
     date = date.astimezone(amsterdam_tz)
-    return date.strftime("%d/%m/%y at %H:%M:%S")
+    return date.strftime("%d/%m/%y %H:%M:%S")
