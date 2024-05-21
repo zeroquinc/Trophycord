@@ -166,4 +166,4 @@ cython_debug/
 config.py
 
 # json files
-*.json
+emoji.json
