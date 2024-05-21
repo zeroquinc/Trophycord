@@ -2,7 +2,7 @@ import discord
 
 from utils.image import get_discord_color
 from utils.datetime import format_date
-from utils.trophy import format_title
+from utils.trophy import format_title, replace_trophy_with_emoji
 
 from config.config import DISCORD_IMAGE
 
@@ -17,7 +17,7 @@ async def create_trophy_embed(trophy, trophy_title_info, client, current, total_
     percentage = (completion / total_trophies) * 100
     embed = discord.Embed(description=f"**[{trophy_title.title_name}]({game_url}) ({platform})**\n\n{trophy.trophy_detail}\n\nUnlocked by {trophy.trophy_earn_rate}% of players", color=most_common_color)
     embed.add_field(name="Trophy", value=f"[{trophy.trophy_name}]({trophy.trophy_icon_url})", inline=True)
-    embed.add_field(name="Rarity", value=f"{trophy.trophy_type.name.lower().capitalize()}")
+    embed.add_field(name="Rarity", value=replace_trophy_with_emoji(trophy.trophy_type.name.lower()))
     embed.add_field(name="Completion", value=f"{completion}/{total_trophies} ({percentage:.2f}%)", inline=True)
     embed.set_image(url=DISCORD_IMAGE)
     embed.set_thumbnail(url=trophy.trophy_icon_url)
