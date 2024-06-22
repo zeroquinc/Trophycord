@@ -25,7 +25,7 @@ def get_client():
         profile_picture[online_id] = profile_picture_url
     return client
 
-def get_recent_titles(client, hours=24): 
+def get_recent_titles(client, hours=1000): 
     logger.info("Calling Sony API to get recently played games")
     now = get_current_time()
     titles = list(client.title_stats())

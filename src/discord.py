@@ -4,7 +4,7 @@ from utils.image import get_discord_color
 from utils.datetime import format_date
 from utils.trophy import format_title, replace_trophy_with_emoji
 
-from config.config import DISCORD_IMAGE
+from config.config import DISCORD_IMAGE, STACK_EMBED
 
 from utils.custom_logger import logger
 
@@ -53,11 +53,23 @@ async def send_trophy_embeds(trophies_channel, trophy_embeds):
     trophy_embeds.sort(key=lambda x: x[0])  # Sort embeds by trophy earned date
     if trophy_embeds:
         logger.info(f"Sending {len(trophy_embeds)} trophy embeds to {trophies_channel}")
-        for i in range(0, len(trophy_embeds), 10):
-            await trophies_channel.send(embeds=[embed[1] for embed in trophy_embeds[i:i+10]])
+        if STACK_EMBED:
+            for i in range(0, len(trophy_embeds), 10):
+                batch = trophy_embeds[i:i+10]
+                for _, embed in batch:
+                    await trophies_channel.send(embed=embed)
+        else:
+            for _, embed in trophy_embeds:
+                await trophies_channel.send(embed=embed)
 
 async def send_platinum_embeds(platinum_channel, platinum_embeds):
     if platinum_embeds:
         logger.info(f"Sending {len(platinum_embeds)} platinum embeds to {platinum_channel}")
-        for i in range(0, len(platinum_embeds), 10):
-            await platinum_channel.send(embeds=[embed[1] for embed in platinum_embeds[i:i+10]])
+        if STACK_EMBED:
+            for i in range(0, len(platinum_embeds), 10):
+                batch = platinum_embeds[i:i+10]
+                for _, embed in batch:
+                    await platinum_channel.send(embed=embed)
+        else:
+            for _, embed in platinum_embeds:
+                await platinum_channel.send(embed=embed)
