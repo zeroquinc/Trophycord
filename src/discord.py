@@ -12,23 +12,23 @@ async def create_trophy_embed(trophy, trophy_title_info, client, current, total_
     trophy_title = trophy_title_info['trophy_title']
     game_url = format_title(trophy_title.title_name)  # format the title name into a URL
     platform = trophy_title_info['platform']
-    most_common_color = await get_discord_color(trophy.trophy_icon_url)
+    most_common_color = await get_discord_color(trophy_title.title_icon_url)
     completion = current
     percentage = (completion / total_trophies) * 100
-    embed = discord.Embed(description=f"**[{trophy_title.title_name}]({game_url}) ({platform})**\n\n{trophy.trophy_detail}\n\nUnlocked by {trophy.trophy_earn_rate}% of players", color=most_common_color)
-    embed.add_field(name="Trophy", value=f"[{trophy.trophy_name}]({trophy.trophy_icon_url})", inline=True)
+    embed = discord.Embed(title=trophy.trophy_name, description=f"{trophy.trophy_detail}\n\n[{trophy_title.title_name}]({game_url}) ({platform})", color=most_common_color)
+    embed.add_field(name="Unlock Ratio", value=f"{trophy.trophy_earn_rate}%", inline=True)
     embed.add_field(name="Rarity", value=replace_trophy_with_emoji(trophy.trophy_type.name.lower()))
-    embed.add_field(name="Completion", value=f"{completion}/{total_trophies} ({percentage:.2f}%)", inline=True)
+    embed.add_field(name="Progress", value=f"{completion}/{total_trophies} ({percentage:.2f}%)", inline=True)
     embed.set_image(url=DISCORD_IMAGE)
     embed.set_thumbnail(url=trophy.trophy_icon_url)
-    embed.set_footer(text=f"{client.online_id} • Earned on {format_date(trophy.earned_date_time)}", icon_url=client.profile_picture_url)
-    embed.set_author(name="A Trophy Unlocked", icon_url=trophy_title.title_icon_url)
+    embed.set_footer(text=f"{client.online_id} • {format_date(trophy.earned_date_time)}", icon_url=client.profile_picture_url)
+    embed.set_author(name="Trophy unlocked", icon_url=trophy_title.title_icon_url)
     return embed
 
 async def create_simple_trophy_embed(trophy, trophy_title_info, client, current, total_trophies):
     trophy_title = trophy_title_info['trophy_title']
     game_url = format_title(trophy_title.title_name)  # format the title name into a URL
-    most_common_color = await get_discord_color(trophy.trophy_icon_url)
+    most_common_color = await get_discord_color(trophy_title.title_icon_url)
     completion = current
     percentage = (completion / total_trophies) * 100
     embed = discord.Embed(description=f"**{trophy.trophy_name} {replace_trophy_with_emoji(trophy.trophy_type.name.lower())} {trophy.trophy_earn_rate}%**\n{trophy.trophy_detail}\n\n[{trophy_title.title_name}]({game_url})", color=most_common_color)
