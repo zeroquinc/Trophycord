@@ -167,3 +167,4 @@ config.py
 
 # json files
 emoji.json
+src/*.json
